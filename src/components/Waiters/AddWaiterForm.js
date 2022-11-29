@@ -1,11 +1,10 @@
 import { Fragment, useState } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { CheckIcon } from '@heroicons/react/24/outline'
-const ipcRenderer = window.require('electron').ipcRenderer;
 
 export function AddWaiterForm() {
 
-    ipcRenderer.on('success', ()=> {
+    window.api.receive('success', ()=> {
         setOpen(true);
     })
 
@@ -120,7 +119,7 @@ export function AddWaiterForm() {
   }
 
 function closeWindow(){
-    ipcRenderer.invoke('waiter', {
+    window.api.send('waiter', {
         method: 'cancel'
     });
 }
@@ -142,9 +141,6 @@ function addWaiter(){
         creationDate : creationDate,
     }
 
-    ipcRenderer.invoke('waiter', {
-        method: 'addWaiter',
-        payload : waiterObj
-    })
+    window.data.addWaiterAsync(waiterObj);
 }
   

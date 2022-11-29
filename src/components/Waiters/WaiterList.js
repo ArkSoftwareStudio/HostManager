@@ -1,10 +1,6 @@
 import { Fragment, useRef, useState } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
-const IpcRenderer = window.require('electron').ipcRenderer;
-
-
-//create your forceUpdate hook
 
 
 function classNames(...classes) {
@@ -15,23 +11,28 @@ export function WaiterList() {
   const [waiterObj, setWaiterObj] = useState([]);
   const [open, setOpen] = useState(false)
   const [waiterId, setWaiterId] = useState('');
-  const cancelButtonRef = useRef(null)
+  const cancelButtonRef = useRef(null);
 
   const didRender = useRef(false);
-  IpcRenderer.send('data', { method: 'getWaiters' });
 
-  IpcRenderer.on('data', (e, data) => {
-    if(didRender.current) return;
+  if(!didRender.current){
+    window.data.getWaitersAsync().then( (result) => {
+      setWaiterObj(result);
+    });
     didRender.current = true;
-    setWaiterObj(data.payload);
-  })
 
-  IpcRenderer.on('reload', (e,data) => {
-    setWaiterObj(data.payload);
-  })
+    window.api.receive('reload', () => {
+        window.data.getWaitersAsync().then( (result) => {
+          setWaiterObj(result);
+        })
+    })
+  }
+
 
   function DeleteWaiter(id){
-    IpcRenderer.send('data', {method: 'delete-waiter', payload: id});
+    window.data.deleteWaiterAsync(id).then( (result) => {
+      setWaiterObj(result);
+    })
     setOpen(false);
   }
 
@@ -197,7 +198,7 @@ export function WaiterList() {
   )
 
 function OpenForm() {
-  IpcRenderer.invoke('waiter',
+  window.api.send('waiter',
     { method: 'open-form' }
   );
 }

@@ -4,42 +4,32 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const isDev = require('electron-is-dev');
 const fs = require('fs');
 
-let userJson = fs.readFileSync(path.join(__dirname, '../src/Data/Waiters/Waiters.json'), 'utf-8');
-let waiters = JSON.parse(userJson);
-
-function UpdateWaiterList(){
-    userJson = fs.readFileSync(path.join(__dirname, '../src/Data/Waiters/Waiters.json'), 'utf-8');
-    waiters = JSON.parse(userJson);
-}
-
-function DeleteWaiter(id){
-  var filtered = waiters.filter((item) => {
-    return item.id !== id;
-  })
-  var writeJson = JSON.stringify(filtered);
-  fs.writeFileSync(path.join(__dirname, '../src/Data/Waiters/Waiters.json'), writeJson, 'utf-8');
-  UpdateWaiterList();
+const PATHS = {
+  waiterData : path.join(app.getPath('documents'), './host/Data/Waiters'),
+  waiterJson : path.join(app.getPath('documents'), './host/Data/Waiters/Waiters.json')
 }
 
 
 function createWindow() {
+
   // Create the browser window.
   var addWin = null;
   const win = new BrowserWindow({
     width: 1440,
     height: 720,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      nodeIntegrationInWorker: false,
+      nodeIntegrationInSubFrames: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
+      preload: path.join(__dirname, 'preload.js')
     },
   });
 
   // and load the index.html of the app.
   if(isDev){
-    win.loadURL(
-      isDev
-        ? 'http://localhost:3000' : `file://${__dirname}/../build/index.html`
-    );
+    win.loadURL('http://localhost:3000');
   }else{
     win.loadURL(url.format({
       pathname: path.join(__dirname, 'index.html'),
@@ -53,25 +43,70 @@ function createWindow() {
 
   win.removeMenu();
 
-  ipcMain.on('data', (e, args) => {
+  ipcMain.handle('data', async (e, args) => {
     switch(args.method){
       case 'getWaiters':
-        UpdateWaiterList();
-        e.reply('data', {method:'getWaiters', payload: waiters})
+        let rawData = [];
+        let fileExists = fs.existsSync(PATHS.waiterJson)
+        if(!fileExists){
+          let datajson = JSON.stringify(rawData);
+
+          fs.mkdir(PATHS.waiterData, {recursive: true}, (err) =>{
+            if (err) return console.log(err);
+            fs.writeFile(PATHS.waiterJson, datajson, {encoding: 'utf-8', flag: "w",
+            mode: 0o666}, (err) => {
+              if(err) return console.log(err);
+            });
+          })
+
+          return [];
+        }else{
+          try{
+            let fileContents = fs.readFileSync(PATHS.waiterJson, "utf-8");
+            let json = JSON.parse(fileContents)
+            return json;
+          }catch(err) {
+            console.log("JSON IS NULL");
+            return [];
+          }
+        }
       break;
 
-      case 'delete-waiter':
-        DeleteWaiter(args.payload);
-        UpdateWaiterList();
-        e.reply('reload', {method:'getWaiters', payload: waiters})
+      case 'deleteWaiter': 
+        if(fs.existsSync(PATHS.waiterJson)){
+          let waiterDoc = fs.readFileSync(PATHS.waiterJson, 'utf-8');
+          let waiterJson = JSON.parse(waiterDoc);
+          let result = waiterJson.filter((item) => {
+            return item.id !== args.id
+          })
+          fs.writeFile(PATHS.waiterJson, JSON.stringify(result), {encoding: 'utf-8'}, (err) => {
+            if(err) return console.log(err);
+          })
+          return result;
+        }
+
+      break;
+
+      case 'addWaiter':
+        if(fs.existsSync(PATHS.waiterJson)){
+          let waiterDoc = fs.readFileSync(PATHS.waiterJson, 'utf-8');
+          let waiterJson = JSON.parse(waiterDoc);
+          waiterJson.push(args.waiter)
+          fs.writeFile(PATHS.waiterJson, JSON.stringify(waiterJson), {encoding: 'utf-8'}, (err) => {
+            if(err) return console.log(err);
+          })
+          addWin.webContents.send('success');
+          win.webContents.send('reload');
+          return waiterJson;
+        }
       break;
 
       default: break;
     }
-
   })
 
-  ipcMain.handle('waiter', async (e, args) => {
+
+  ipcMain.on('waiter', async (e, args) => {
     switch(args.method){
       case 'open-form':
         addWin = new BrowserWindow({
@@ -83,37 +118,27 @@ function createWindow() {
           resizable: false,
           movable: false,
           webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false
+            nodeIntegration: false,
+            nodeIntegrationInWorker: false,
+            nodeIntegrationInSubFrames: false,
+            contextIsolation: true,
+            enableRemoteModule: false,
+            preload: path.join(__dirname, 'preload.js')
           },
         });
         
-        addWin.loadURL(
-          isDev
-            ? 'http://localhost:3000#/waiterModal'
-            : `file://${path.join(__dirname, '../build/index.html#/waiterModal')}`
-        );
+        if(isDev){
+          addWin.loadURL('http://localhost:3000#/waiterModal');
+        }else{
+          addWin.loadFile(`${path.join(__dirname, 'index.html')}`, {hash: "/waiterModal"});
+        }
+
+        addWin.webContents.openDevTools({mode: 'detach'});
       break;
 
       case 'cancel':
         if(addWin) addWin.close();
         addWin = null;
-      break;
-
-
-      case 'addWaiter':
-          waiters.push(args.payload);
-          userJson = JSON.stringify(waiters);
-          fs.writeFileSync(path.join(__dirname, '../src/Data/Waiters/Waiters.json'), userJson, 'utf-8');
-          UpdateWaiterList();
-          win.webContents.send('reload', {method:'getWaiters', payload: waiters});
-          addWin.webContents.send('success');
-      break;
-
-      case 'getWaiters':
-        userJson = fs.readFileSync(path.join(__dirname, '../src/Data/Waiters/Waiters.json'), 'utf-8');
-        waiters = JSON.parse(userJson);
-        e.sender.send(waiters);
       break;
 
         default: break;
