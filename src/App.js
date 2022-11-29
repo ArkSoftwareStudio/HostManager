@@ -1,24 +1,21 @@
 import './App.css';
 import {HashRouter, Route, Routes} from 'react-router-dom';
-import {SidebarNav} from './components/SidebarNav/SidebarNav';
 import {MainScreen} from './components/MainScreen/MainScreen';
 import { WaiterList } from './components/Waiters/WaiterList';
+import { AddWaiterForm } from './components/Waiters/AddWaiterForm';
+import { Layout } from './components/Layout/Layout';
+import { AlertModal } from './components/Modals/AlertModal';
 
 function App() {
   return (
-    <div className='h-screen bg-gray-700 grid grid-flow-col grid-cols-8'>
-      <div className='container h-screen max-h-screen col-span-2'>
-        <SidebarNav/>
-      </div>
-      <div className='col-span-6 bg-slate-100 p-2 w-full max-w-full max-h-full overflow-x-hidden overflow-y-auto'>
-        <HashRouter>
+    <HashRouter>
           <Routes>
-            <Route exact path='/' element={<MainScreen/>}></Route>
-            <Route exact path='/waiter' element={<WaiterList/>}></Route>
+            <Route exact path='/' element={<Layout><MainScreen/></Layout>}></Route>
+            <Route exact path='/waiter' element={<Layout><WaiterList/></Layout>}></Route>
+            <Route exact path='/waiterModal' element ={<AddWaiterForm/>} />
+            <Route exact path='/deleteModal' element ={<AlertModal/>} />
           </Routes>
-        </HashRouter>
-      </div>
-    </div>
+    </HashRouter>
   );
 }
 

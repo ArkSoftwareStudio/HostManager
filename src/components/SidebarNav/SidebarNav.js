@@ -16,7 +16,7 @@ const navigation = [
     icon: ChartBarIcon,
     current: false,
     children: [
-      { name: 'Table Log', href: '#' },
+      { name: 'Table Log', href: '#/deleteModal' },
     ],
   },
 ]
@@ -27,14 +27,7 @@ function classNames(...classes) {
 
 export function SidebarNav() {
   return (
-    <div className="flex flex-grow flex-col overflow-y-auto border-r h-full w-full border-gray-200 bg-white pt-5 pb-4">
-      <div className="flex flex-shrink-0 items-center px-4">
-        <img
-          className="h-8 w-auto"
-          src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600"
-          alt="Your Company"
-        />
-      </div>
+    <div className="flex flex-grow flex-col overflow-y-auto border-r h-full w-full border-gray-200 bg-white pt-5 pb-4" id='sideBarNav'>
       <div className="mt-5 flex flex-grow flex-col">
         <nav className="flex-1 space-y-1 bg-white px-2" aria-label="Sidebar">
           {navigation.map((item) =>
