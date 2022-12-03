@@ -15,6 +15,10 @@ export function Layout(props) {
         setUpdateDownloaded(true);
     })
 
+    function restartApp(){
+        window.api.send('restart-app');
+    }
+
 
     return (
         <div className='h-screen bg-gray-700 relative grid grid-flow-col grid-cols-8'>
@@ -43,7 +47,7 @@ export function Layout(props) {
                     </div>
                     <div className="ml-3 flex-1 items-center justify-center md:flex md:justify-between">
                         <p className="text-sm text-blue-700">The Update has finished Downloading</p>
-                        <button className='rounded-md flex justify-center items-center mx-2 shadow-md w-16 p-2 h-10 bg-slate-200 text-gray-700 h-full'>Restart</button>
+                        <button className='rounded-md flex justify-center items-center mx-2 shadow-md w-16 p-2 h-10 bg-slate-200 text-gray-700 h-full' onClick={restartApp}>Restart</button>
                     </div>
                 </div>
             </div>
