@@ -13,6 +13,9 @@ module.exports = {
         cyan: colors.cyan,
         rose: colors.rose,
       },
+      gridColumn: {
+        'span-16': 'span 16 / span 16',
+      }
     },
   },
   plugins: [

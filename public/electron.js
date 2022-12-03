@@ -3,6 +3,7 @@ const url = require('url');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const isDev = require('electron-is-dev');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
 
 const PATHS = {
   waiterData: path.join(app.getPath('documents'), './host/Data/Waiters'),
@@ -19,7 +20,7 @@ const _ACTIONS = {
   delete: "DELETE",
   create: "CREATE",
   add: "ADD",
-  assign : "ASSIGN"
+  assign: "ASSIGN"
 }
 
 function padTo2Digits(num) {
@@ -107,6 +108,7 @@ function createWindow() {
     width: 1440,
     height: 720,
     frame: true,
+    fullscreen: !isDev,
     webPreferences: {
       nodeIntegration: false,
       nodeIntegrationInWorker: false,
@@ -217,18 +219,20 @@ function createWindow() {
               section.tables.filter((table) => {
                 if (table.tableNumber === args.info.tableNumber) {
                   table.isTaken = !table.isTaken;
-                  table.isTaken ?
+                  if (table.isTaken) {
                     createLog(
                       {
                         action: _ACTIONS.take,
                         description: `TABLE ${table.tableNumber} IS TAKEN`
                       }
                     )
-                    :
+                    section.tableCount++;
+                  } else {
                     createLog({
                       action: _ACTIONS.free,
                       description: `TABLE ${table.tableNumber} IS FREE TO USE`
                     });
+                  }
                 }
                 return table;
               })
@@ -360,7 +364,7 @@ function createWindow() {
               section.waiter = args.waiter;
               createLog({
                 action: _ACTIONS.assign,
-                description : `${args.waiter.firstName} ${args.waiter.lastName} WAS ASSIGNED TO SECTION ${section.sectionName}`
+                description: `${args.waiter.firstName} ${args.waiter.lastName} WAS ASSIGNED TO SECTION ${section.sectionName}`
               })
               return section;
             }
@@ -370,6 +374,46 @@ function createWindow() {
           return newArray;
         }
         return [];
+      
+      case 'resetCounter': 
+        if(sExistsFunction){
+          let sections = readFileToJson(PATHS.sectionJson);
+          let newArr = sections.filter(section => {
+            if(section.sectionId === args.sectionId){
+              section.tableCount = 0;
+            }
+            return section;
+          })
+
+          writeFile(PATHS.sectionJson, newArr);
+          return newArr;
+        }
+      return [];
+        
+      case 'counterUp':
+        let sectionsUp = readFileToJson(PATHS.sectionJson);
+        let newArrUp = sectionsUp.filter(section => {
+          if(section.sectionId === args.sectionId){
+            section.tableCount++;
+          }
+          return section;
+        })
+
+        writeFile(PATHS.sectionJson, newArrUp);
+
+      return newArrUp;   
+      
+      case 'counterDown':
+        let sectionsDown = readFileToJson(PATHS.sectionJson);
+        let newArrDown = sectionsDown.filter(section => {
+          if(section.sectionId === args.sectionId){
+            section.tableCount--;
+          }
+          return section;
+        })
+        writeFile(PATHS.sectionJson, newArrDown);
+      return newArrDown;
+
       //#endregion SECTION MODIFICATIONS
 
       default: break;
@@ -392,7 +436,22 @@ function createWindow() {
   ipcMain.on('close-app', () => {
     win.close();
   })
+
+  ipcMain.on('restart_app', () => {
+    autoUpdater.quitAndInstall();
+  });
   //#endregion IPC MAIN ON
+
+  win.once('ready-to-show', () => {
+    autoUpdater.checkForUpdatesAndNotify();
+  });
+
+  autoUpdater.on('update-available', () => {
+    win.webContents.send('update_available');
+  });
+  autoUpdater.on('update-downloaded', () => {
+    win.webContents.send('update_downloaded');
+  });
 
 }
 
@@ -410,5 +469,6 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
 
 //#endregion

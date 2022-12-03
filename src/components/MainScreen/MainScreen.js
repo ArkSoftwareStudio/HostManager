@@ -1,7 +1,7 @@
 import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Dialog, Transition, Listbox } from '@headlessui/react'
-import { CheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { CheckIcon, ExclamationTriangleIcon, ArrowPathRoundedSquareIcon, InformationCircleIcon, MinusCircleIcon } from '@heroicons/react/24/outline'
 import { ChevronUpDownIcon } from '@heroicons/react/20/solid'
 
 function randomKey() {
@@ -30,12 +30,14 @@ export function MainScreen() {
   const [openAddSection, setOpenAddSection] = useState(false);
   const [openDeleteSection, setOpenDeleteSection] = useState(false);
   const [openAssign, setOpenAssign] = useState(false);
+  const [openReset, setOpenReset] = useState(false);
+  const [openToggle, setOpenToggle] = useState(false);
   const [sectionId, setSectionId] = useState('');
   const [sections, setSections] = useState([]);
-  const [info, setInfo] = useState({});
-  const [addSectionAvailable, setAddSectionAvailable] = useState(true);
   const cancelButtonRef = useRef(null)
   const didRender = useRef(false);
+  const [info, setInfo] = useState({});
+  const [addSectionAvailable, setAddSectionAvailable] = useState(true);
   const [waiterObj, setWaiterObj] = useState([])
   const [selected, setSelected] = useState(() => { return waiterObj[0] })
 
@@ -73,7 +75,7 @@ export function MainScreen() {
     })
   }
 
-  function toggleTable(info) {
+  function toggleTable() {
     window.data.toggleTableAsync(info).then((result) => {
       setSections(result);
     })
@@ -92,7 +94,6 @@ export function MainScreen() {
     } else {
       window.data.addTableAsync({ sectionId: sectionId, tableName: tableName }).then((result) => {
         setSections(result);
-        setOpen(false);
       });
     }
   }
@@ -111,7 +112,8 @@ export function MainScreen() {
         tables: [],
         isFull: false,
         isActive: false,
-        waiter: false
+        waiter: false,
+        tableCount: 0
       }
 
       window.data.addSectionAsync({ newSection }).then((result) => {
@@ -136,17 +138,47 @@ export function MainScreen() {
       setOpenAssign(false);
     })
   }
+
+  function resetCounter() {
+    window.data.resetCounterAsync(sectionId).then((result) => {
+      setSections(result);
+      setOpenReset(false);
+    })
+  }
+
+  function sectionMinusCount(sectionId){
+    window.data.sectionCountDown(sectionId).then(result => {
+      setSections(result);
+    });
+  }
+
+  function sectionPlusCount(sectionId){
+    window.data.sectionPlusCount(sectionId).then(result => {
+      setSections(result);
+    });
+  }
   //#endregion
 
   return (
-    <div className="w-full h-full grid grid-cols-5 overflow-hidden rounded-lg bg-white shadow ">
+    <div className="w-full h-full grid grid-cols-5 relative overflow-hidden rounded-lg bg-white shadow ">
       {sections.map((section) => (
         <div key={section.sectionId} className={_CLASSES.section_div}>
           <div key={randomKey()} className={_CLASSES.header_ctn}>
+            <button className='absolute top-1 left-12 rounded-full hover:bg-slate-600' onClick={() => {
+              sectionPlusCount(section.sectionId);
+            }}>
+              <PlusCircleIcon className='h-6 w-6 text-white' />
+            </button>
+            <button className='absolute top-1 right-12 rounded-full hover:bg-slate-600' onClick={() => {
+              sectionMinusCount(section.sectionId);
+            }}>
+              <MinusCircleIcon className='h-6 w-6 text-white' />
+            </button>
             <button key={randomKey()} className='rounded-full shadow-lg w-6 h-6
                   absolute top-1 right-4 items-center justify-center flex hover:bg-red-600 z-40'
               onClick={() => { setSectionId(section.sectionId); setOpenDeleteSection(true) }}
             >
+
               <TrashIcon className='w-5 h-5 text-white' />
             </button>
             <h1 key={randomKey()} className={section.isActive ? `${_CLASSES.header_txt} ${_CLASSES.active_bounce}` : _CLASSES.header_txt}>{section.sectionName}</h1>
@@ -155,13 +187,13 @@ export function MainScreen() {
             {section.tables.map((table) => (
               <div key={randomKey()} className='w-20 h-20 mx-2 my-4 relative'>
                 <button key={randomKey()} className='rounded-full bg-red-500 shadow-lg w-6 h-6
-               absolute -top-2 z-40 -right-2 items-center justify-center flex hover:bg-red-600'
+               absolute -top-2 z-10 -right-2 items-center justify-center flex hover:bg-red-600'
                   onClick={() => openDeleteModal({ sectionName: section.sectionName, tableId: table.tableId })}>
                   <TrashIcon className='w-5 h-5 text-white' />
                 </button>
                 <button key={table.tableId}
                   className={table.isTaken ? `${_CLASSES.default_btn} ${_CLASSES.taken_btn}` : `${_CLASSES.default_btn} ${_CLASSES.available_btn}`}
-                  onClick={() => toggleTable({ sectionName: section.sectionName, tableNumber: table.tableNumber })}
+                  onClick={() => { setOpenToggle(true); setInfo({ sectionName: section.sectionName, tableNumber: table.tableNumber, tableState: table.isTaken }) }}
                 >
                   <p key={randomKey()} className={_CLASSES.btn_text}>{table.tableNumber}</p>
                 </button>
@@ -176,12 +208,33 @@ export function MainScreen() {
             </button>
           </div>
 
-          <button className='w-full h-12 border-t-2 absolute bottom-0 hover:bg-slate-200 active:bg-slate-300
-          disabled:bg-slate-500 disabled:opacity-50 enabled:border-r'
-            disabled={(waiterObj.length <= 0)}
-            onClick={() => { setOpenAssign(true); setSectionId(section.sectionId) }}>
-            {section.waiter ? <p className='font-semibold text-lg'>{section.waiter.firstName}</p> : <p className='font-semibold text-lg'>Assign Waiter</p>}
-          </button>
+          {
+            //#region SECTION BOTTOM BUTTONS (RESET, ASSIGN, COUNT)
+          }
+          <div className='w-full h-12 absolute bottom-0 flex'>
+            <button className='w-1/4 flex justify-center items-center hover:bg-slate-200 active:bg-slate-300
+              disabled:bg-slate-500 disabled:opacity-50'
+              onClick={() => {
+                setOpenReset(true);
+                setSectionId(section.sectionId);
+              }}
+            >
+              <ArrowPathRoundedSquareIcon className='w-6 h-6 text-gray-600' />
+            </button>
+            <button className='w-full h-full hover:bg-slate-200 active:bg-slate-300
+              disabled:bg-slate-500 disabled:opacity-50'
+              disabled={(waiterObj.length <= 0)}
+              onClick={() => { setOpenAssign(true); setSectionId(section.sectionId) }}>
+              {section.waiter ? <p className='font-semibold text-lg'>{section.waiter.firstName}</p> : <p className='font-semibold text-lg'>Assign Waiter</p>}
+            </button>
+            <span className='w-1/4 border shadow-inner shadow-lg'>
+              <p className='text-sm text-gray-500 text-center'>Count</p>
+              <p className='text-center'> {section.tableCount} </p>
+            </span>
+          </div>
+          {
+            //#endregion
+          }
         </div>
       ))}
 
@@ -601,6 +654,145 @@ export function MainScreen() {
           </div>
         </Dialog>
       </Transition.Root>
+
+      <Transition.Root show={openReset} as={Fragment}>
+        <Dialog as="div" className="relative z-10" initialFocus={cancelButtonRef} onClose={setOpenReset}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              >
+                <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                      <ExclamationTriangleIcon className="h-6 w-6 text-red-600" aria-hidden="true" />
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                      <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+                        Reset Counter
+                      </Dialog.Title>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-500">
+                          Are you sure you want to reset the Table Count? This Action cannot be undone.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                    <button
+                      type="button"
+                      className="inline-flex w-full justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
+                      onClick={() => { resetCounter(); setOpenReset(false); }}
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="button"
+                      className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
+                      onClick={() => setOpenReset(false)}
+                      ref={cancelButtonRef}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
+
+      <Transition.Root show={openToggle} as={Fragment}>
+        <Dialog as="div" className="relative z-10" initialFocus={cancelButtonRef} onClose={setOpenToggle}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              >
+                <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                  <div>
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
+                      <InformationCircleIcon className="h-10 w-10 antialiased  text-blue-700" aria-hidden="true" />
+                    </div>
+                    <div className="mt-3 text-center sm:mt-5">
+                      <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+                        Change Table State
+                      </Dialog.Title>
+                      <div className="mt-2">
+
+                        {
+                          info.tableState ?
+                            <div className='text-sm text-gray-500'>
+                              Do you want to change this table to <p className='text-sky-700 font-semibold'>FREE?</p>
+                            </div>
+                            :
+                            <div className='text-sm text-gray-500'>
+                              Do you want to change this table to <p className='text-sky-700 font-semibold'>TAKEN?</p>
+                            </div>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+                    <button
+                      type="button"
+                      className="inline-flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:col-start-2 sm:text-sm"
+                      onClick={() => { toggleTable(); setOpenToggle(false) }}
+                    >
+                      Change
+                    </button>
+                    <button
+                      type="button"
+                      className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:col-start-1 sm:mt-0 sm:text-sm"
+                      onClick={() => setOpenToggle(false)}
+                      ref={cancelButtonRef}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
+
     </div>
   )
 }

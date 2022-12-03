@@ -48,6 +48,11 @@ contextBridge.exposeInMainWorld("data", {
         return result;
     },
 
+    resetCounterAsync: async (sectionId) => {
+        const result = await ipcRenderer.invoke('data', {method: 'resetCounter', sectionId: sectionId});
+        return result;
+    },
+
     addSectionAsync: async (section) => {
         const result = await ipcRenderer.invoke('data', {method: 'addSection', section: section});
         return result;
@@ -61,7 +66,18 @@ contextBridge.exposeInMainWorld("data", {
     assignWaiterAsync: async(info) => {
         const result = await ipcRenderer.invoke('data', {method: 'assignWaiter', sectionId: info.sectionId, waiter : info.waiter})
         return result;
-    }
+    },
+
+    sectionPlusCount: async(sectionId) => {
+        const result = await ipcRenderer.invoke('data', {method: 'counterUp', sectionId: sectionId})
+        return result;
+    },
+
+    sectionCountDown: async(sectionId) => {
+        const result = await ipcRenderer.invoke('data', {method: 'counterDown', sectionId: sectionId})
+        return result;
+    },
+    
 })
 
 contextBridge.exposeInMainWorld('logs', {
